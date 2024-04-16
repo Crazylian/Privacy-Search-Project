@@ -8,6 +8,7 @@ import (
 	"search/database"
 	"search/utils"
 
+	"github.com/ahenzinger/underhood/underhood"
 	"github.com/henrycg/simplepir/matrix"
 	"github.com/henrycg/simplepir/pir"
 	"github.com/henrycg/simplepir/rand"
@@ -33,8 +34,8 @@ type Server struct {
 	embeddingsServer *pir.Server[matrix.Elem64]
 	urlsServer       *pir.Server[matrix.Elem32]
 
-	// embHintServer *underhood.Server[matrix.Elem64]
-	// urlHintServer *underhood.Server[matrix.Elem32]
+	embHintServer *underhood.Server[matrix.Elem64]
+	urlHintServer *underhood.Server[matrix.Elem32]
 }
 
 func Newserver() *Server {
@@ -209,17 +210,17 @@ func NewUrlServers(clustersPerServer int, hintSz uint64, log, wantCorpus, serve 
 
 }
 
-// func (s *Server) Serve(port int) {
-// 	rs := rpc.NewServer()
-// 	rs.Register(s)
-// 	utils.ListenAndServeTCP(rs, port)
-
-// }
+func (s *Server) Serve(port int) {
+	rs := rpc.NewServer()
+	rs.Register(s)
+	utils.ListenAndServeTCP(rs, port)
+}
 
 func Serve(servers *Server, port int) string {
 	addrs := utils.LocalAddr(port)
-	rs := rpc.NewServer()
-	rs.Register(servers)
-	utils.ListenAndServeTCP(rs, port)
+	go servers.Serve(port)
+	// rs := rpc.NewServer()
+	// rs.Register(servers)
+	// utils.ListenAndServeTCP(rs, port)
 	return addrs
 }

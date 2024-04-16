@@ -39,6 +39,14 @@ func main() {
 		fmt.Println("Set up url server")
 		fmt.Println(urlAddrs)
 
+	} else if os.Args[1] == "all-server" {
+		_, embAddrs, _ := protocol.NewEmbeddingServers(conf.EMBEDDINGS_CLUSTERS_PER_SERVER(), conf.DEFAULT_EMBEDDINGS_HINT_SZ(), true, false, true, conf)
+		fmt.Println("Set up embedding server")
+		fmt.Println(embAddrs)
+		_, urlAddrs, _ := protocol.NewUrlServers(conf.URL_CLUSTERS_PER_SERVER(), conf.DEFAULT_URL_HINT_SZ(), true, false, true, conf)
+		fmt.Println("Set up url server")
+		fmt.Println(urlAddrs)
+
 	} else if os.Args[1] == "client" {
 		if len(os.Args) >= 3 {
 			coordinatorIP = os.Args[2]

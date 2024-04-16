@@ -190,7 +190,7 @@ func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, Addr strin
 		fmt.Println("4.Sending SimplePIR query to server")
 	}
 	networkingStartEmb := time.Now()
-	embAns := c.getEmbeddingsAnswer(embQuery, true, Addr)
+	embAns := c.getEmbeddingsAnswer(embQuery, keepConn, Addr)
 	// p.t1, p.up1, p.down1 = logStats(c.params.NumDocs, networkingStart, embQuery, embAns)
 	EmbTime := time.Since(networkingStartEmb).Seconds()
 
