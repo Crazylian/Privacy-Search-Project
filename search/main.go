@@ -10,6 +10,7 @@ import (
 	"search/embeddings"
 	"search/protocol"
 	"search/utils"
+	"strings"
 )
 
 // Where the corpus is stored
@@ -20,7 +21,7 @@ func printUsage() {
 }
 
 func main() {
-	preamble := flag.String("preamble", "/home/lianzheng", "Preamble")
+	preamble := flag.String("preamble", "/home/ubuntu", "Preamble")
 	flag.Parse()
 	coordinatorIP := "0.0.0.0"
 	if len(os.Args) < 2 {
@@ -29,7 +30,10 @@ func main() {
 
 	conf := config.MakeConfig(*preamble + "/data")
 
-	if os.Args[1] == "emb-server" {
+	if os.Args[1] == "preprocess-all" {
+		protocol.NewEmbeddingServers(conf.EMBEDDINGS_CLUSTERS_PER_SERVER(), conf.DEFAULT_EMBEDDINGS_HINT_SZ(), true, false, false, conf)
+		protocol.NewUrlServers(conf.URL_CLUSTERS_PER_SERVER(), conf.DEFAULT_URL_HINT_SZ(), true, false, false, conf)
+	} else if os.Args[1] == "emb-server" {
 		_, embAddrs, _ := protocol.NewEmbeddingServers(conf.EMBEDDINGS_CLUSTERS_PER_SERVER(), conf.DEFAULT_EMBEDDINGS_HINT_SZ(), true, false, true, conf)
 		fmt.Println("Set up embedding server")
 		fmt.Println(embAddrs)
@@ -39,20 +43,27 @@ func main() {
 		fmt.Println("Set up url server")
 		fmt.Println(urlAddrs)
 
-	} else if os.Args[1] == "all-server" {
+	} else if os.Args[1] == "all-servers" {
 		_, embAddrs, _ := protocol.NewEmbeddingServers(conf.EMBEDDINGS_CLUSTERS_PER_SERVER(), conf.DEFAULT_EMBEDDINGS_HINT_SZ(), true, false, true, conf)
 		fmt.Println("Set up embedding server")
 		fmt.Println(embAddrs)
 		_, urlAddrs, _ := protocol.NewUrlServers(conf.URL_CLUSTERS_PER_SERVER(), conf.DEFAULT_URL_HINT_SZ(), true, false, true, conf)
 		fmt.Println("Set up url server")
 		fmt.Println(urlAddrs)
-
+		fmt.Println("Input 'quit' to quit")
+		for {
+			text := utils.ReadLineFromStdin()
+			fmt.Printf("\n\n")
+			if (strings.TrimSpace(text) == "") || (strings.TrimSpace(text) == "quit") {
+				break
+			}
+		}
 	} else if os.Args[1] == "client" {
 		if len(os.Args) >= 3 {
 			coordinatorIP = os.Args[2]
 		}
 
-		protocol.RunClient(utils.RemoteAddr(coordinatorIP, utils.EmbServerPort), conf)
+		protocol.RunClient(utils.RemoteAddr(coordinatorIP, utils.EmbServerPort), utils.RemoteAddr(coordinatorIP, utils.UrlServerPort), conf)
 
 		// protocol.
 	} else if os.Args[1] == "test" {
@@ -66,5 +77,7 @@ func main() {
 			panic(err)
 		}
 		fmt.Println(query)
+	} else {
+		printUsage()
 	}
 }

@@ -69,6 +69,7 @@ func (s *Server) preprocessEmbeddingsSeeded(c *corpus.Corpus, seed *rand.PRGKey,
 		panic("Parameters not supported. Inner products may wrap around.")
 	}
 
+	// s.preprocessEmbHint()
 	fmt.Println("done")
 }
 
@@ -92,6 +93,8 @@ func (s *Server) preprocessUrlsSeeded(c *corpus.Corpus, seed *rand.PRGKey, hintS
 	s.hint.UrlsHint.Offsets = []uint64{s.hint.UrlsHint.Info.M}
 	s.hint.UrlsIndexMap = indexMap
 
+	// s.preprocessUrlHint()
+	// fmt.Println(s.hint.UrlsHint)
 	fmt.Println("done")
 }
 
@@ -203,6 +206,7 @@ func NewUrlServers(clustersPerServer int, hintSz uint64, log, wantCorpus, serve 
 	}
 
 	if serve {
+		// servers.preprocessUrlHint()
 		addrs = Serve(servers, utils.UrlServerPort)
 	}
 

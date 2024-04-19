@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -117,14 +118,61 @@ func (c *Client) Setup(hint *TiptoeHint) {
 	}
 }
 
-func RunClient(Addr string, conf *config.Config) {
+func InitHint(embhint *TiptoeHint, urlhint *TiptoeHint) *TiptoeHint {
+	var hint = new(TiptoeHint)
+	hint.CParams.NumDocs = embhint.CParams.NumDocs + urlhint.CParams.NumDocs
+
+	hint.CParams.EmbeddingSlots = embhint.CParams.EmbeddingSlots
+	hint.CParams.SlotBits = embhint.CParams.SlotBits
+	hint.EmbeddingsHint = embhint.EmbeddingsHint
+	hint.EmbeddingsIndexMap = embhint.EmbeddingsIndexMap
+
+	hint.CParams.UrlBytes = urlhint.CParams.UrlBytes
+	hint.CParams.CompressUrl = urlhint.CParams.CompressUrl
+	hint.UrlsHint = urlhint.UrlsHint
+	hint.UrlsIndexMap = urlhint.UrlsIndexMap
+
+	hint.ServeEmbeddings = true
+	hint.ServeUrls = true
+	return hint
+}
+
+func RunClient(EmbAddr string, UrlAddr string, conf *config.Config) {
 	fmt.Println("Setting up client...")
 
 	c := NewClient()
 	fmt.Println("1.Getting metadata")
-	hint := c.getHint(true, Addr)
+	embhint := c.getHint(false, EmbAddr)
+	urlhint := c.getHint(false, UrlAddr)
+	// fmt.Println(embhint.EmbeddingsHint)
+	// fmt.Println(urlhint.UrlsHint)
+	hint := InitHint(embhint, urlhint)
+
 	c.Setup(hint)
 	// logHintSize(hint)
+	gob.Register(corpus.Params{})
+	total := utils.MessageSizeMB(hint.CParams)
+
+	if hint.ServeEmbeddings {
+		gob.Register(database.ClusterMap{})
+		h := utils.MessageSizeMB(hint.EmbeddingsHint)
+		m := utils.MessageSizeMB(hint.EmbeddingsIndexMap)
+		total += (h + m)
+
+		fmt.Printf("\t\tEmbeddings hint: %.2f MB\n", h)
+		fmt.Printf("\t\tEmbeddings map: %.2f MB\n", m)
+	}
+
+	if hint.ServeUrls {
+		gob.Register(database.SubclusterMap{})
+		h := utils.MessageSizeMB(hint.UrlsHint)
+		m := utils.MessageSizeMB(hint.UrlsIndexMap)
+		total += (h + m)
+
+		fmt.Printf("\t\tUrls hint: %.2f MB\n", h)
+		fmt.Printf("\t\tUrls map: %.2f MB\n", m)
+	}
+	fmt.Printf("\tTotal metadata: %.2f MB\n", total)
 
 	in, out := embeddings.SetupEmbeddingProcess(c.NumClusters(), conf)
 	fmt.Println("Running client preprocessing")
@@ -138,7 +186,7 @@ func RunClient(Addr string, conf *config.Config) {
 		if (strings.TrimSpace(text) == "") || (strings.TrimSpace(text) == "quit") {
 			break
 		}
-		c.runRound(in, out, text, Addr, true, true)
+		c.runRound(in, out, text, EmbAddr, UrlAddr, true, true)
 	}
 
 	if c.rpcClient != nil {
@@ -146,7 +194,7 @@ func RunClient(Addr string, conf *config.Config) {
 	}
 }
 
-func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, Addr string, verbose, keepConn bool) {
+func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr string, UrlAddr string, verbose, keepConn bool) {
 	fmt.Printf("Executing query \"%s\"\n", text)
 	var query struct {
 		Cluster_index uint64
@@ -156,7 +204,14 @@ func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, Addr strin
 	// Perform processing
 	start := time.Now()
 	ct := c.PreprocessQuery()
-	offlineAns := c.applyHint(ct, keepConn, Addr)
+	EmbofflineAns := c.applyHint(ct, false, EmbAddr)
+	fmt.Println(EmbofflineAns.EmbAnswer)
+	toDrop := int(2048 - 1408)
+	*ct = (*ct)[:len(*ct)-toDrop]
+	UrlofflineAns := c.applyHint(ct, false, UrlAddr)
+	var offlineAns = new(UnderhoodAnswer)
+	offlineAns.EmbAnswer = EmbofflineAns.EmbAnswer
+	offlineAns.UrlAnswer = UrlofflineAns.UrlAnswer
 	c.ProcessHintApply(offlineAns)
 	clientPreproc := time.Since(start).Seconds()
 	if verbose {
@@ -190,7 +245,7 @@ func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, Addr strin
 		fmt.Println("4.Sending SimplePIR query to server")
 	}
 	networkingStartEmb := time.Now()
-	embAns := c.getEmbeddingsAnswer(embQuery, keepConn, Addr)
+	embAns := c.getEmbeddingsAnswer(embQuery, false, EmbAddr)
 	// p.t1, p.up1, p.down1 = logStats(c.params.NumDocs, networkingStart, embQuery, embAns)
 	EmbTime := time.Since(networkingStartEmb).Seconds()
 
@@ -213,7 +268,7 @@ func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, Addr strin
 		fmt.Printf("Sending PIR query to server for chunk %d\n", retrievedChunk)
 	}
 	networkingStartUrl := time.Now()
-	urlAns := c.getUrlsAnswer(urlQuery, keepConn, Addr)
+	urlAns := c.getUrlsAnswer(urlQuery, keepConn, UrlAddr)
 	// p.t2, p.up2, p.down2 = logStats(c.params.NumDocs, networkingStart, urlQuery, urlAns)
 	UrlTime := time.Since(networkingStartUrl).Seconds()
 
