@@ -38,10 +38,28 @@ func main() {
 		fmt.Println("Set up embedding server")
 		fmt.Println(embAddrs)
 
+		fmt.Println("Input 'quit' to quit")
+		for {
+			text := utils.ReadLineFromStdin()
+			fmt.Printf("\n\n")
+			if strings.TrimSpace(text) == "quit" {
+				break
+			}
+		}
+
 	} else if os.Args[1] == "url-server" {
 		_, urlAddrs, _ := protocol.NewUrlServers(conf.URL_CLUSTERS_PER_SERVER(), conf.DEFAULT_URL_HINT_SZ(), true, false, true, conf)
 		fmt.Println("Set up url server")
 		fmt.Println(urlAddrs)
+
+		fmt.Println("Input 'quit' to quit")
+		for {
+			text := utils.ReadLineFromStdin()
+			fmt.Printf("\n\n")
+			if strings.TrimSpace(text) == "quit" {
+				break
+			}
+		}
 
 	} else if os.Args[1] == "all-servers" {
 		_, embAddrs, _ := protocol.NewEmbeddingServers(conf.EMBEDDINGS_CLUSTERS_PER_SERVER(), conf.DEFAULT_EMBEDDINGS_HINT_SZ(), true, false, true, conf)

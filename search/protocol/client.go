@@ -144,6 +144,7 @@ func RunClient(EmbAddr string, UrlAddr string, conf *config.Config) {
 	fmt.Println("1.Getting metadata")
 	embhint := c.getHint(false, EmbAddr)
 	urlhint := c.getHint(false, UrlAddr)
+	sub := int(embhint.EmbeddingsHint.Info.Params.N - urlhint.UrlsHint.Info.Params.N)
 	// fmt.Println(embhint.EmbeddingsHint)
 	// fmt.Println(urlhint.UrlsHint)
 	hint := InitHint(embhint, urlhint)
@@ -179,13 +180,15 @@ func RunClient(EmbAddr string, UrlAddr string, conf *config.Config) {
 	defer out.Close()
 
 	for {
+		fmt.Println("Running client preprocessing")
+		clientPreproc := c.preprocessRound(EmbAddr, UrlAddr, true, false, sub)
 		fmt.Printf("Enter private search query: ")
 		text := utils.ReadLineFromStdin()
 		fmt.Printf("\n\n")
 		if (strings.TrimSpace(text) == "") || (strings.TrimSpace(text) == "quit") {
 			break
 		}
-		c.runRound(in, out, text, EmbAddr, UrlAddr, true, true)
+		c.runRound(in, out, text, EmbAddr, UrlAddr, true, true, clientPreproc)
 	}
 
 	if c.rpcClient != nil {
@@ -193,7 +196,31 @@ func RunClient(EmbAddr string, UrlAddr string, conf *config.Config) {
 	}
 }
 
-func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr string, UrlAddr string, verbose, keepConn bool) {
+func (c *Client) preprocessRound(EmbAddr string, UrlAddr string, verbose, keepConn bool, sub int) float64 {
+	// Perform preprocessing
+	start := time.Now()
+	ct := c.PreprocessQuery()
+	EmbofflineAns := c.applyHint(ct, keepConn, EmbAddr)
+
+	// fmt.Println(EmbofflineAns.EmbAnswer)
+
+	// toDrop := int(2048 - 1408)
+	*ct = (*ct)[:len(*ct)-sub]
+
+	UrlofflineAns := c.applyHint(ct, keepConn, UrlAddr)
+
+	var offlineAns = new(UnderhoodAnswer)
+	offlineAns.EmbAnswer = EmbofflineAns.EmbAnswer
+	offlineAns.UrlAnswer = UrlofflineAns.UrlAnswer
+
+	clientPreproc := time.Since(start).Seconds()
+	if verbose {
+		fmt.Printf("\tPreprocessing complete -- %fs\n\n", clientPreproc)
+	}
+	return clientPreproc
+}
+
+func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr string, UrlAddr string, verbose, keepConn bool, clientPreproc float64) {
 	fmt.Printf("Executing query \"%s\"\n", text)
 	var query struct {
 		Cluster_index uint64
@@ -201,28 +228,28 @@ func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr st
 	}
 
 	// Perform processing
-	fmt.Println("Running client preprocessing")
-	start := time.Now()
-	ct := c.PreprocessQuery()
-	EmbofflineAns := c.applyHint(ct, false, EmbAddr)
 
-	fmt.Println(EmbofflineAns.EmbAnswer)
+	// start := time.Now()
+	// ct := c.PreprocessQuery()
+	// EmbofflineAns := c.applyHint(ct, false, EmbAddr)
 
-	toDrop := int(2048 - 1408)
-	*ct = (*ct)[:len(*ct)-toDrop]
+	// fmt.Println(EmbofflineAns.EmbAnswer)
 
-	UrlofflineAns := c.applyHint(ct, false, UrlAddr)
-	var offlineAns = new(UnderhoodAnswer)
-	offlineAns.EmbAnswer = EmbofflineAns.EmbAnswer
-	offlineAns.UrlAnswer = UrlofflineAns.UrlAnswer
-	c.ProcessHintApply(offlineAns)
-	clientPreproc := time.Since(start).Seconds()
+	// // toDrop := int(2048 - 1408)
+	// // *ct = (*ct)[:len(*ct)-toDrop]
+
+	// UrlofflineAns := c.applyHint(ct, false, UrlAddr)
+	// var offlineAns = new(UnderhoodAnswer)
+	// offlineAns.EmbAnswer = EmbofflineAns.EmbAnswer
+	// offlineAns.UrlAnswer = UrlofflineAns.UrlAnswer
+	// c.ProcessHintApply(offlineAns)
+	// clientPreproc := time.Since(start).Seconds()
 	if verbose {
 		fmt.Printf("\tPreprocessing complete -- %fs\n\n", clientPreproc)
 	}
 
 	// Build embeddings query
-	start = time.Now()
+	start := time.Now()
 	if verbose {
 		fmt.Println("2.Generating embeding of the query")
 	}
