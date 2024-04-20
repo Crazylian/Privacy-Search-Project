@@ -28,10 +28,10 @@ func (s *Server) ApplyHint(ct *underhood.HintQuery, out *UnderhoodAnswer) error 
 		}
 		out.EmbAnswer = *s.embHintServer.HintAnswer(ct)
 
-		if s.hint.ServeUrls {
-			toDrop := int(s.hint.EmbeddingsHint.Info.Params.N - s.hint.UrlsHint.Info.Params.N)
-			*ct = (*ct)[:len(*ct)-toDrop]
-		}
+		// if s.hint.ServeUrls {
+		// 	toDrop := int(s.hint.EmbeddingsHint.Info.Params.N - s.hint.UrlsHint.Info.Params.N)
+		// 	*ct = (*ct)[:len(*ct)-toDrop]
+		// }
 	}
 
 	if s.hint.ServeUrls {

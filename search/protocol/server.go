@@ -93,8 +93,6 @@ func (s *Server) preprocessUrlsSeeded(c *corpus.Corpus, seed *rand.PRGKey, hintS
 	s.hint.UrlsHint.Offsets = []uint64{s.hint.UrlsHint.Info.M}
 	s.hint.UrlsIndexMap = indexMap
 
-	// s.preprocessUrlHint()
-	// fmt.Println(s.hint.UrlsHint)
 	fmt.Println("done")
 }
 
@@ -175,6 +173,7 @@ func NewEmbeddingServers(clustersPerServer int, hintSz uint64, log, wantCorpus, 
 	}
 
 	if serve {
+		servers.preprocessEmbHint()
 		addrs = Serve(servers, utils.EmbServerPort)
 	}
 
@@ -206,7 +205,7 @@ func NewUrlServers(clustersPerServer int, hintSz uint64, log, wantCorpus, serve 
 	}
 
 	if serve {
-		// servers.preprocessUrlHint()
+		servers.preprocessUrlHint()
 		addrs = Serve(servers, utils.UrlServerPort)
 	}
 

@@ -50,11 +50,12 @@ func main() {
 		_, urlAddrs, _ := protocol.NewUrlServers(conf.URL_CLUSTERS_PER_SERVER(), conf.DEFAULT_URL_HINT_SZ(), true, false, true, conf)
 		fmt.Println("Set up url server")
 		fmt.Println(urlAddrs)
+		fmt.Println("Ready to start answering queries")
 		fmt.Println("Input 'quit' to quit")
 		for {
 			text := utils.ReadLineFromStdin()
 			fmt.Printf("\n\n")
-			if (strings.TrimSpace(text) == "") || (strings.TrimSpace(text) == "quit") {
+			if strings.TrimSpace(text) == "quit" {
 				break
 			}
 		}

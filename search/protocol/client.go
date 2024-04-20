@@ -175,7 +175,6 @@ func RunClient(EmbAddr string, UrlAddr string, conf *config.Config) {
 	fmt.Printf("\tTotal metadata: %.2f MB\n", total)
 
 	in, out := embeddings.SetupEmbeddingProcess(c.NumClusters(), conf)
-	fmt.Println("Running client preprocessing")
 	defer in.Close()
 	defer out.Close()
 
@@ -202,12 +201,16 @@ func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr st
 	}
 
 	// Perform processing
+	fmt.Println("Running client preprocessing")
 	start := time.Now()
 	ct := c.PreprocessQuery()
 	EmbofflineAns := c.applyHint(ct, false, EmbAddr)
+
 	fmt.Println(EmbofflineAns.EmbAnswer)
+
 	toDrop := int(2048 - 1408)
 	*ct = (*ct)[:len(*ct)-toDrop]
+
 	UrlofflineAns := c.applyHint(ct, false, UrlAddr)
 	var offlineAns = new(UnderhoodAnswer)
 	offlineAns.EmbAnswer = EmbofflineAns.EmbAnswer
