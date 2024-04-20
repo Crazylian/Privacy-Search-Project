@@ -33,6 +33,8 @@ func main() {
 	if os.Args[1] == "preprocess-all" {
 		protocol.NewEmbeddingServers(conf.EMBEDDINGS_CLUSTERS_PER_SERVER(), conf.DEFAULT_EMBEDDINGS_HINT_SZ(), true, false, false, conf)
 		protocol.NewUrlServers(conf.URL_CLUSTERS_PER_SERVER(), conf.DEFAULT_URL_HINT_SZ(), true, false, false, conf)
+	} else if os.Args[1] == "preprocess-coordinator" {
+		protocol.LocalSetupCoordinator(conf)
 	} else if os.Args[1] == "emb-server" {
 		_, embAddrs, _ := protocol.NewEmbeddingServers(conf.EMBEDDINGS_CLUSTERS_PER_SERVER(), conf.DEFAULT_EMBEDDINGS_HINT_SZ(), true, false, true, conf)
 		fmt.Println("Set up embedding server")
@@ -50,6 +52,15 @@ func main() {
 		_, urlAddrs, _ := protocol.NewUrlServers(conf.URL_CLUSTERS_PER_SERVER(), conf.DEFAULT_URL_HINT_SZ(), true, false, true, conf)
 		fmt.Println("Set up url server")
 		fmt.Println(urlAddrs)
+
+		Addrs := []string{embAddrs, urlAddrs}
+
+		protocol.RunCoordinator(conf.MAX_EMBEDDINGS_SERVERS(),
+			conf.MAX_URL_SERVERS(),
+			utils.CoordinatorPort,
+			Addrs,
+			true, // log
+			conf)
 		fmt.Println("Input 'quit' to quit")
 		for {
 			text := utils.ReadLineFromStdin()
@@ -63,7 +74,8 @@ func main() {
 			coordinatorIP = os.Args[2]
 		}
 
-		protocol.RunClient(utils.RemoteAddr(coordinatorIP, utils.EmbServerPort), utils.RemoteAddr(coordinatorIP, utils.UrlServerPort), conf)
+		// protocol.RunClient(utils.RemoteAddr(coordinatorIP, utils.EmbServerPort), utils.RemoteAddr(coordinatorIP, utils.UrlServerPort), conf)
+		protocol.RunClient(utils.RemoteAddr(coordinatorIP, utils.CoordinatorPort), conf)
 
 		// protocol.
 	} else if os.Args[1] == "test" {

@@ -1,13 +1,38 @@
 package utils
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/rpc"
 	"strconv"
 )
 
+var publicKey = `-----BEGIN CERTIFICATE-----
+MIIBVTCB/KADAgECAgEAMAoGCCqGSM49BAMCMBIxEDAOBgNVBAoTB0FjbWUgQ28w
+HhcNMTQwNTAyMDQ0NDM4WhcNMTUwNTAyMDQ0NDM4WjASMRAwDgYDVQQKEwdBY21l
+IENvMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEU7EtIv3GVZKMduiOwmQBzrqI
+XnF84tNhcPSNtnw8cTgF8CPfJ0wcCbIvgQXEeZpTgn+A5N7YpdooUiwtICadeKND
+MEEwDgYDVR0PAQH/BAQDAgCgMBMGA1UdJQQMMAoGCCsGAQUFBwMBMAwGA1UdEwEB
+/wQCMAAwDAYDVR0RBAUwA4IBKjAKBggqhkjOPQQDAgNIADBFAiBU0cZRnenXWw0Y
+OgQekAT+sx64ptjzm+ruABzBcIggbQIhAL2XbTx1l8IgmxtQZnK5S9wUmiIYMSxz
+F2OaCRUekyth
+-----END CERTIFICATE-----
+`
+
+var privateKey = `
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIKbLcggTNozKjPjKdF2ZL/cT1i0UnT2gkcSi+sqxBebioAoGCCqGSM49
+AwEHoUQDQgAEU7EtIv3GVZKMduiOwmQBzrqIXnF84tNhcPSNtnw8cTgF8CPfJ0wc
+CbIvgQXEeZpTgn+A5N7YpdooUiwtICadeA==
+-----END EC PRIVATE KEY-----
+`
+
 const (
+	ServerPort      = 1234
+	ServerPort2     = 1235
+	CoordinatorPort = 1237
+
 	EmbServerPort = 1240
 	UrlServerPort = 1450
 )
@@ -40,6 +65,29 @@ func localIP() net.IP {
 /*
  * callTLS and callTCP send an RPC to the server; then wait for the response.
  */
+
+func DialTLS(address string) *rpc.Client {
+	var config tls.Config
+	config.InsecureSkipVerify = true
+
+	conn, err := tls.Dial("tcp", address, &config)
+	if err != nil {
+		panic(err)
+		panic("Should not happen")
+	}
+
+	return rpc.NewClient(conn)
+}
+
+func CallTLS(c *rpc.Client, rpcname string, args interface{}, reply interface{}) {
+	err := c.Call(rpcname, args, reply)
+	if err == nil {
+		return
+	}
+
+	fmt.Printf("Err: %s\n", err)
+	panic("Call failed")
+}
 
 func DialTCP(addr string) *rpc.Client {
 	c, err := rpc.Dial("tcp", addr)
@@ -86,4 +134,55 @@ func ListenAndServeTCP(server *rpc.Server, port int) {
 		defer conn.Close()
 		go server.ServeConn(conn)
 	}
+}
+
+func ListenAndServeTLS(server *rpc.Server, port int) {
+	address := LocalAddr(port)
+	cert, err := tls.X509KeyPair([]byte(publicKey), []byte(privateKey))
+	if err != nil {
+		fmt.Printf("Could not load certficate: %v\n", err)
+		panic("Could not load certificate")
+	}
+
+	var config tls.Config
+	config.InsecureSkipVerify = true
+	config.Certificates = []tls.Certificate{cert}
+
+	l, err := tls.Listen("tcp", address, &config)
+	if err != nil {
+		fmt.Printf("Listener error: %v\n", err)
+		panic("Listener error")
+	}
+
+	defer l.Close()
+
+	fmt.Printf("TLS server listening on %s\n", address)
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Printf("Listener error: %v\n", err)
+			continue
+		}
+
+		go handleOneClientTLS(conn, server)
+	}
+}
+
+func handleOneClientTLS(conn net.Conn, server *rpc.Server) {
+	defer conn.Close()
+
+	tlscon, ok := conn.(*tls.Conn)
+	if !ok {
+		fmt.Println("Could not cast conn")
+		return
+	}
+
+	err := tlscon.Handshake()
+	if err != nil {
+		fmt.Printf("Handshake failed: %v\n", err)
+		return
+	}
+	fmt.Println("Handshake OK")
+
+	server.ServeConn(conn)
 }
