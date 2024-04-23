@@ -1,13 +1,10 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"search/config"
-	"search/embeddings"
 	"search/protocol"
 	"search/utils"
 	"strings"
@@ -86,16 +83,17 @@ func main() {
 
 		// protocol.
 	} else if os.Args[1] == "test" {
-		in, out := embeddings.SetupEmbeddingProcess(1280, conf)
-		var query struct {
-			Cluster_index uint64
-			Emb           []int8
-		}
-		io.WriteString(in, "text"+"\n")                             // send query to embedding process
-		if err := json.NewDecoder(out).Decode(&query); err != nil { // get back embedding + cluster
-			panic(err)
-		}
-		fmt.Println(query)
+		protocol.Testbackend()
+		// in, out := embeddings.SetupEmbeddingProcess(1280, conf)
+		// var query struct {
+		// 	Cluster_index uint64
+		// 	Emb           []int8
+		// }
+		// io.WriteString(in, "text"+"\n")                             // send query to embedding process
+		// if err := json.NewDecoder(out).Decode(&query); err != nil { // get back embedding + cluster
+		// 	panic(err)
+		// }
+		// fmt.Println(query)
 	} else {
 		printUsage()
 	}

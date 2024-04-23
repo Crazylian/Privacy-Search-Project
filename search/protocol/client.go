@@ -10,6 +10,7 @@ import (
 	"search/corpus"
 	"search/database"
 	"search/embeddings"
+	"search/framework"
 	"search/utils"
 	"strings"
 	"time"
@@ -19,6 +20,11 @@ import (
 	"github.com/henrycg/simplepir/matrix"
 	"github.com/henrycg/simplepir/pir"
 )
+
+func Testbackend() int {
+	framework.Setup()
+	return 0
+}
 
 type UnderhoodAnswer struct {
 	EmbAnswer underhood.HintAnswer
@@ -481,3 +487,15 @@ func makeRPC[Q QueryType, A AnsType](query *Q, reply *A, keepConn bool, tcp, rpc
 
 	return client
 }
+
+// func RunFromWebsite(text string) []framework.Answer {
+// 	fmt.Println("Running client preprocessing")
+// 	clientPreproc := c.preprocessRound(EmbAddr, UrlAddr, true, false, sub)
+// 	fmt.Printf("Enter private search query: ")
+// 	text := utils.ReadLineFromStdin()
+// 	fmt.Printf("\n\n")
+// 	if (strings.TrimSpace(text) == "") || (strings.TrimSpace(text) == "quit") {
+// 		break
+// 	}
+// 	c.runRound(in, out, text, EmbAddr, UrlAddr, true, true, clientPreproc)
+// }
