@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"search/config"
+	"search/framework"
 	"search/protocol"
 	"search/utils"
 	"strings"
@@ -18,7 +19,7 @@ func printUsage() {
 }
 
 func main() {
-	preamble := flag.String("preamble", "/home/ubuntu", "Preamble")
+	preamble := flag.String("preamble", "/home/lianzheng", "Preamble")
 	flag.Parse()
 	coordinatorIP := "0.0.0.0"
 	if len(os.Args) < 2 {
@@ -74,16 +75,22 @@ func main() {
 				break
 			}
 		}
-	} else if os.Args[1] == "client" {
+		// } else if os.Args[1] == "client" {
+		// 	if len(os.Args) >= 3 {
+		// 		coordinatorIP = os.Args[2]
+		// 	}
+
+		// 	protocol.RunClient(utils.RemoteAddr(coordinatorIP, utils.EmbServerPort), utils.RemoteAddr(coordinatorIP, utils.UrlServerPort), conf)
+
+	} else if os.Args[1] == "test" {
+		// protocol.Testbackend()
 		if len(os.Args) >= 3 {
 			coordinatorIP = os.Args[2]
 		}
-
-		protocol.RunClient(utils.RemoteAddr(coordinatorIP, utils.EmbServerPort), utils.RemoteAddr(coordinatorIP, utils.UrlServerPort), conf)
-
-		// protocol.
-	} else if os.Args[1] == "test" {
-		protocol.Testbackend()
+		ch := make(chan []framework.Answer)
+		done := make(chan string)
+		go protocol.RunClient(utils.RemoteAddr(coordinatorIP, utils.EmbServerPort), utils.RemoteAddr(coordinatorIP, utils.UrlServerPort), ch, done, conf)
+		framework.Setup(ch, done)
 		// in, out := embeddings.SetupEmbeddingProcess(1280, conf)
 		// var query struct {
 		// 	Cluster_index uint64

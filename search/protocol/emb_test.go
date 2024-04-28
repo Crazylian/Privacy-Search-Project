@@ -88,7 +88,7 @@ func testRecoverCluster(s *Server, corp *corpus.Corpus) {
 
 func TestEmbeddingsRealData(t *testing.T) {
 	s = Newserver()
-	conf = config.MakeConfig("/home/ubuntu/data")
+	conf = config.MakeConfig("/home/lianzheng/data")
 	f, _ := os.Create("emb_test.prof")
 	pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()

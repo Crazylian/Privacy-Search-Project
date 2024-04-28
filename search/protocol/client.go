@@ -21,11 +21,6 @@ import (
 	"github.com/henrycg/simplepir/pir"
 )
 
-func Testbackend() int {
-	framework.Setup()
-	return 0
-}
-
 type UnderhoodAnswer struct {
 	EmbAnswer underhood.HintAnswer
 	UrlAnswer underhood.HintAnswer
@@ -143,7 +138,7 @@ func InitHint(embhint *TiptoeHint, urlhint *TiptoeHint) *TiptoeHint {
 	return hint
 }
 
-func RunClient(EmbAddr string, UrlAddr string, conf *config.Config) {
+func RunClient(EmbAddr string, UrlAddr string, ch chan []framework.Answer, done chan string, conf *config.Config) {
 	fmt.Println("Setting up client...")
 
 	c := NewClient()
@@ -188,13 +183,15 @@ func RunClient(EmbAddr string, UrlAddr string, conf *config.Config) {
 	for {
 		fmt.Println("Running client preprocessing")
 		clientPreproc := c.preprocessRound(EmbAddr, UrlAddr, true, false, sub)
-		fmt.Printf("Enter private search query: ")
-		text := utils.ReadLineFromStdin()
+		// fmt.Printf("Enter private search query: ")
+		fmt.Println("Wait for private search query...")
+		// text := utils.ReadLineFromStdin()
+		text := <-done
 		fmt.Printf("\n\n")
 		if (strings.TrimSpace(text) == "") || (strings.TrimSpace(text) == "quit") {
 			break
 		}
-		c.runRound(in, out, text, EmbAddr, UrlAddr, true, true, clientPreproc)
+		ch <- c.runRound(in, out, text, EmbAddr, UrlAddr, true, false, clientPreproc)
 	}
 
 	if c.rpcClient != nil {
@@ -208,16 +205,19 @@ func (c *Client) preprocessRound(EmbAddr string, UrlAddr string, verbose, keepCo
 	ct := c.PreprocessQuery()
 	EmbofflineAns := c.applyHint(ct, keepConn, EmbAddr)
 
-	// fmt.Println(EmbofflineAns.EmbAnswer)
+	fmt.Println("Get Hint From Emb-Server Successfully")
 
 	// toDrop := int(2048 - 1408)
 	*ct = (*ct)[:len(*ct)-sub]
 
 	UrlofflineAns := c.applyHint(ct, keepConn, UrlAddr)
 
+	fmt.Println("Get Hint From Url-Server Successfully")
+
 	var offlineAns = new(UnderhoodAnswer)
 	offlineAns.EmbAnswer = EmbofflineAns.EmbAnswer
 	offlineAns.UrlAnswer = UrlofflineAns.UrlAnswer
+	c.ProcessHintApply(offlineAns)
 
 	clientPreproc := time.Since(start).Seconds()
 	if verbose {
@@ -226,7 +226,7 @@ func (c *Client) preprocessRound(EmbAddr string, UrlAddr string, verbose, keepCo
 	return clientPreproc
 }
 
-func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr string, UrlAddr string, verbose, keepConn bool, clientPreproc float64) {
+func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr string, UrlAddr string, verbose, keepConn bool, clientPreproc float64) []framework.Answer {
 	fmt.Printf("Executing query \"%s\"\n", text)
 	var query struct {
 		Cluster_index uint64
@@ -281,7 +281,7 @@ func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr st
 		fmt.Println("4.Sending SimplePIR query to server")
 	}
 	networkingStartEmb := time.Now()
-	embAns := c.getEmbeddingsAnswer(embQuery, false, EmbAddr)
+	embAns := c.getEmbeddingsAnswer(embQuery, keepConn, EmbAddr)
 	// p.t1, p.up1, p.down1 = logStats(c.params.NumDocs, networkingStart, embQuery, embAns)
 	EmbTime := time.Since(networkingStartEmb).Seconds()
 
@@ -315,6 +315,7 @@ func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr st
 		fmt.Printf("\tThe top 10 retrieved urls are:\n")
 	}
 	j := 1
+	var result []framework.Answer
 	for at := 0; at < len(indicesByScore); at++ {
 		if scores[at] == 0 {
 			break
@@ -324,11 +325,17 @@ func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr st
 		_, chunk, index := c.urlMap.SubclusterToIndex(query.Cluster_index, doc)
 
 		if chunk == retrievedChunk {
+			s := scores[at]
+			u := corpus.GetIthUrl(urls, index)
 			if verbose {
+				// fmt.Printf("\t% 3d) [score %s] %s\n", j,
+				// 	color.YellowString(fmt.Sprintf("% 4d", scores[at])),
+				// 	color.BlueString(corpus.GetIthUrl(urls, index)))
 				fmt.Printf("\t% 3d) [score %s] %s\n", j,
-					color.YellowString(fmt.Sprintf("% 4d", scores[at])),
-					color.BlueString(corpus.GetIthUrl(urls, index)))
+					color.YellowString(fmt.Sprintf("% 4d", s)),
+					color.BlueString(u))
 			}
+			result = append(result, framework.Answer{Score: s, Url: u})
 			j += 1
 			if j > 10 {
 				break
@@ -339,6 +346,8 @@ func (c *Client) runRound(in io.WriteCloser, out io.ReadCloser, text, EmbAddr st
 	clientTotal := time.Since(start).Seconds()
 	fmt.Printf("\tAnswered in:\n\t\t%v (preproc)\n\t\t%v (client)\n\t\t%v (round 1)\n\t\t%v (round 2)\n\t\t%v (total)\n---\n",
 		clientPreproc, clientSetup, EmbTime, UrlTime, clientTotal)
+
+	return result
 }
 
 func (c *Client) PreprocessQuery() *underhood.HintQuery {
@@ -487,15 +496,3 @@ func makeRPC[Q QueryType, A AnsType](query *Q, reply *A, keepConn bool, tcp, rpc
 
 	return client
 }
-
-// func RunFromWebsite(text string) []framework.Answer {
-// 	fmt.Println("Running client preprocessing")
-// 	clientPreproc := c.preprocessRound(EmbAddr, UrlAddr, true, false, sub)
-// 	fmt.Printf("Enter private search query: ")
-// 	text := utils.ReadLineFromStdin()
-// 	fmt.Printf("\n\n")
-// 	if (strings.TrimSpace(text) == "") || (strings.TrimSpace(text) == "quit") {
-// 		break
-// 	}
-// 	c.runRound(in, out, text, EmbAddr, UrlAddr, true, true, clientPreproc)
-// }

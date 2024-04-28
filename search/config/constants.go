@@ -34,7 +34,7 @@ func SLOT_BITS() uint64 {
 }
 
 func (c *Config) TOTAL_NUM_CLUSTERS() int {
-	return 1280
+	return 14000
 }
 
 func (c *Config) MAX_EMBEDDINGS_SERVERS() int {

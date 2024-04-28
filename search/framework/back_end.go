@@ -22,7 +22,7 @@ type Responce struct {
 	Data []Answer `json:"data"`
 }
 
-func Setup() {
+func Setup(ch chan []Answer, done chan string) {
 	r := gin.Default()
 	r.LoadHTMLGlob("templates/*")
 
@@ -43,9 +43,11 @@ func Setup() {
 			})
 			return
 		}
+		done <- request.Text
+		data := <-ch
 		responce.Code = http.StatusOK
 		responce.Msg = "查询成功"
-		responce.Data = append(responce.Data, Answer{22, request.Text}, Answer{11, request.Text})
+		responce.Data = data
 		c.JSON(http.StatusOK, responce)
 		return
 	})

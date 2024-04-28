@@ -17,7 +17,7 @@
     }
 </style>
 
-<body style="--tblr-body-bg: #ffffff; font-size: x-large;">
+<body style="--tblr-body-bg: #ffffff; font-size: large;">
     <div class="page-wrapper">
         <div class="page-body">
             <div class="container-xl">
@@ -89,8 +89,8 @@
 
     // 获取后端
     function GetResult() {
-        var text = document.getElementById('query').value
-        alert(text)
+        var text = document.getElementById('query').value;
+        // alert(text);
         var query = JSON.stringify({ 'text': text });
         $.ajax({
             data: query,
@@ -115,7 +115,7 @@
         var table = document.getElementById('results');
         var newRow = table.insertRow(-1);
         var cell1 = newRow.insertCell(-1);
-        cell1.setAttribute("class", "text-nowarp") 
+        cell1.setAttribute("class", "text-nowarp")
         cell1.innerHTML = score
         var cell2 = newRow.insertCell(-1);
         cell2.setAttribute("class", "text-secondary")
